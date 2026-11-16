@@ -2,8 +2,14 @@
 // Husks march on the lantern and gnaw it once they arrive; Wisps dart at the
 // Keeper; the Ashen Maw (boss) does both and soaks a whole magazine. Enemies are a
 // fixed pool on the state; this file spawns them, steers them and resolves bullets.
+//
+// Full grind (slot 2, variant C): bullet hits use the real bullet radius from
+// config.js (PLAYER.bulletRadius, fatter in the dense grind) instead of a
+// hardcoded 5, and this file resolves the Ember Nova blessing — a periodic
+// burst around the Keeper that burns every ember inside its radius, with
+// radius and damage growing per stack.
 
-import { COMBO, ENEMY, FIELD, LANTERN, PICKUP } from './config.js';
+import { COMBO, ENEMY, FIELD, LANTERN, PICKUP, PLAYER } from './config.js';
 import { hurtLantern, hurtPlayer } from './player.js';
 
 export function createEnemyPool(count) {
@@ -85,9 +91,35 @@ function killEnemy(state, enemy) {
   }
 }
 
+/** Ember Nova: when the blessing's timer fires, burn every ember in range. */
+function novaBurst(state, dt) {
+  const player = state.player;
+  if (player.nova <= 0) return;
+  player.novaTimer -= dt;
+  if (player.novaTimer > 0) return;
+  player.novaTimer = 3.2;
+  const radius = 140 + 30 * player.nova;
+  const damage = 18 + 12 * player.nova;
+  state.particles.emberBurst(player.x, player.y);
+  state.particles.shake(3, 0.2);
+  state.sfx.push('kill');
+  for (let i = 0; i < state.enemies.length; i += 1) {
+    const enemy = state.enemies[i];
+    if (!enemy.active) continue;
+    const dx = enemy.x - player.x;
+    const dy = enemy.y - player.y;
+    if (dx * dx + dy * dy < radius * radius) {
+      enemy.hp -= damage;
+      enemy.hitFlash = 0.12;
+      if (enemy.hp <= 0) killEnemy(state, enemy);
+    }
+  }
+}
+
 /** Steer every live enemy, resolve bullet hits and contact damage, one fixed step. */
 export function updateEnemies(state, dt) {
   const player = state.player;
+  novaBurst(state, dt);
   for (let i = 0; i < state.enemies.length; i += 1) {
     const enemy = state.enemies[i];
     if (!enemy.active) continue;
@@ -135,7 +167,7 @@ export function updateEnemies(state, dt) {
       if (!bullet.active) continue;
       const bdx = bullet.x - enemy.x;
       const bdy = bullet.y - enemy.y;
-      const reach = enemy.radius + 5;
+      const reach = enemy.radius + PLAYER.bulletRadius;
       if (bdx * bdx + bdy * bdy < reach * reach) {
         bullet.active = false;
         enemy.hp -= bullet.damage;

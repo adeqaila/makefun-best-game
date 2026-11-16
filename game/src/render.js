@@ -2,8 +2,15 @@
 // field is scaled to fit the window and centred, the margin filled with the
 // backdrop colour. Canvas shapes and text only — no images, no fonts to load.
 // Screens: title, play (HUD over the field), paused, upgrade choice, game over.
+//
+// Full grind (slot 2, variant C): everything in variant B (HUD backing plates,
+// boss HP bar + Maw glow ring, Maw silhouettes on the title), plus the title
+// gains the lantern itself with three embers orbiting it, upgrade cards gain a
+// drawn icon per blessing plus the level stack ("Lv 2"), and the results screen
+// lists the blessings taken during the run.
 
-import { FIELD, FONT, LANTERN, PALETTE } from './config.js';
+import { FIELD, FONT, LANTERN, PALETTE, PLAYER } from './config.js';
+import { UPGRADE_POOL } from './upgrades.js';
 
 export const SCREEN_TITLE = 'title';
 export const SCREEN_PLAY = 'play';
@@ -13,6 +20,7 @@ export const SCREEN_OVER = 'over';
 
 const HP_BAR = { x: 24, y: 668, width: 260, height: 18 };
 const LANTERN_BAR = { x: 510, y: 668, width: 260, height: 18 };
+const BOSS_BAR = { width: 360, y: 58, height: 12 };
 
 /** Deterministic starfield: position of star i is a pure function of i. */
 function starPos(i) {
@@ -66,6 +74,92 @@ export function createRenderer(canvas) {
     context.fillStyle = fill;
     context.fillRect(x, y, width * Math.max(0, Math.min(1, fraction)), height);
     if (label) text(label, x + width / 2, y + height - 4, 12, '#ffffff', 'center', 'bold');
+  }
+
+  /** A dark plate behind a HUD block: sprites paint under the HUD, never over it. */
+  function hudPlate(x, y, width, height) {
+    context.fillStyle = '#07071ab8';
+    context.fillRect(x, y, width, height);
+    context.strokeStyle = '#ffb34744';
+    context.lineWidth = 1;
+    context.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1);
+  }
+
+  /** One small drawn icon for an upgrade card, by the icon key in upgrades.js. */
+  function drawIcon(icon, cx, cy) {
+    context.strokeStyle = PALETTE.amber;
+    context.fillStyle = PALETTE.amber;
+    context.lineWidth = 2.5;
+    if (icon === 'split') {
+      circle(cx - 12, cy + 4, 4, PALETTE.amber);
+      circle(cx, cy - 4, 4, PALETTE.amber);
+      circle(cx + 12, cy + 4, 4, PALETTE.amber);
+    } else if (icon === 'rapid') {
+      context.beginPath();
+      context.moveTo(cx + 3, cy - 12);
+      context.lineTo(cx - 6, cy + 2);
+      context.lineTo(cx + 1, cy + 2);
+      context.lineTo(cx - 3, cy + 12);
+      context.lineTo(cx + 7, cy - 2);
+      context.lineTo(cx, cy - 2);
+      context.closePath();
+      context.fill();
+    } else if (icon === 'heavy') {
+      circle(cx, cy, 9, PALETTE.amber);
+      circle(cx, cy, 3.5, '#1a1a38');
+    } else if (icon === 'swift') {
+      context.beginPath();
+      context.moveTo(cx - 10, cy - 6);
+      context.lineTo(cx + 2, cy + 6);
+      context.lineTo(cx + 12, cy - 4);
+      context.moveTo(cx - 10, cy + 4);
+      context.lineTo(cx + 2, cy + 14);
+      context.lineTo(cx + 12, cy + 6);
+      context.stroke();
+    } else if (icon === 'ward') {
+      context.beginPath();
+      context.arc(cx, cy, 10, 0, Math.PI * 2);
+      context.stroke();
+      circle(cx, cy, 3.5, '#7ee7ff');
+    } else if (icon === 'magnet') {
+      context.beginPath();
+      context.arc(cx, cy - 2, 9, Math.PI, 0);
+      context.stroke();
+      context.beginPath();
+      context.moveTo(cx - 9, cy - 2);
+      context.lineTo(cx - 9, cy + 8);
+      context.moveTo(cx + 9, cy - 2);
+      context.lineTo(cx + 9, cy + 8);
+      context.stroke();
+    } else if (icon === 'vitality') {
+      context.fillRect(cx - 2.5, cy - 11, 5, 22);
+      context.fillRect(cx - 11, cy - 2.5, 22, 5);
+    } else if (icon === 'regen') {
+      context.beginPath();
+      context.ellipse(cx, cy + 2, 6, 10, 0, 0, Math.PI * 2);
+      context.fill();
+      circle(cx, cy - 6, 3, '#fff3c4');
+    } else if (icon === 'nova') {
+      for (let k = 0; k < 8; k += 1) {
+        const a = (k / 8) * Math.PI * 2;
+        context.beginPath();
+        context.moveTo(cx + Math.cos(a) * 4, cy + Math.sin(a) * 4);
+        context.lineTo(cx + Math.cos(a) * 12, cy + Math.sin(a) * 12);
+        context.stroke();
+      }
+      circle(cx, cy, 3.5, '#fff3c4');
+    } else if (icon === 'mend') {
+      circle(cx, cy + 3, 8, PALETTE.amber);
+      context.beginPath();
+      context.ellipse(cx, cy - 6, 3, 6, 0, 0, Math.PI * 2);
+      context.fillStyle = '#fff3c4';
+      context.fill();
+    } else if (icon === 'twin') {
+      context.fillRect(cx - 8, cy - 10, 4, 20);
+      context.fillRect(cx + 4, cy - 10, 4, 20);
+    } else {
+      circle(cx, cy, 7, PALETTE.amber);
+    }
   }
 
   function drawNight(state) {
@@ -149,6 +243,17 @@ export function createRenderer(canvas) {
       if (enemy.kind === 'wisp') body = PALETTE.wisp;
       else if (enemy.kind === 'husk') body = PALETTE.husk;
       else if (enemy.kind === 'maw') body = '#5c1a1a';
+      if (enemy.kind === 'maw') {
+        // Boss glow ring: a pulsing amber halo so the Maw reads at any size.
+        const pulse = 0.55 + Math.sin(state.time * 5) * 0.25;
+        context.globalAlpha = pulse;
+        context.strokeStyle = PALETTE.amber;
+        context.lineWidth = 3;
+        context.beginPath();
+        context.arc(enemy.x, enemy.y, enemy.radius + 8, 0, Math.PI * 2);
+        context.stroke();
+        context.globalAlpha = 1;
+      }
       circle(enemy.x, enemy.y, enemy.radius, flash ? '#ffffff' : body);
       if (enemy.kind === 'maw') {
         circle(enemy.x, enemy.y, enemy.radius * 0.55, '#1a0505');
@@ -168,8 +273,18 @@ export function createRenderer(canvas) {
     for (let i = 0; i < state.bullets.length; i += 1) {
       const bullet = state.bullets[i];
       if (!bullet.active) continue;
-      circle(bullet.x, bullet.y, 5, '#ffe9b0');
-      circle(bullet.x, bullet.y, 2.5, '#ffffff');
+      // Tracer: a short amber streak behind the bullet, so the shot reads as
+      // a stream of fire even when the field is dense and each bullet lives
+      // only a fraction of a second before it hits.
+      const speed = Math.hypot(bullet.vx, bullet.vy) || 1;
+      context.strokeStyle = '#ffb34788';
+      context.lineWidth = 3;
+      context.beginPath();
+      context.moveTo(bullet.x, bullet.y);
+      context.lineTo(bullet.x - (bullet.vx / speed) * 30, bullet.y - (bullet.vy / speed) * 30);
+      context.stroke();
+      circle(bullet.x, bullet.y, PLAYER.bulletRadius, '#ffe9b0');
+      circle(bullet.x, bullet.y, PLAYER.bulletRadius * 0.45, '#ffffff');
     }
   }
 
@@ -201,7 +316,20 @@ export function createRenderer(canvas) {
     context.globalAlpha = 1;
   }
 
+  /** The live Ashen Maw, or null when no boss is on the field. */
+  function liveMaw(state) {
+    for (let i = 0; i < state.enemies.length; i += 1) {
+      const enemy = state.enemies[i];
+      if (enemy.active && enemy.kind === 'maw') return enemy;
+    }
+    return null;
+  }
+
   function drawHud(state, best) {
+    // Dark plates first: every HUD word sits on its own plate, so no ember,
+    // bullet or particle can ever paint over the wave, score or best again.
+    hudPlate(12, 12, 330, 100);
+    hudPlate(FIELD.width - 312, 12, 300, 64);
     text(`WAVE ${state.wave}`, 24, 40, 26, PALETTE.text, 'left', 'bold');
     text(`SCORE ${state.score}`, 24, 70, 20, PALETTE.amber, 'left', 'bold');
     if (state.combo >= 2) {
@@ -218,7 +346,20 @@ export function createRenderer(canvas) {
     }
     if (state.waveState.phase === 'spawning' || state.waveState.phase === 'fighting') {
       const left = state.waveState.toSpawn + aliveCountText(state);
-      if (left > 0) text(`EMBER LEFT: ${left}`, FIELD.width / 2, 40, 16, PALETTE.muted, 'center');
+      if (left > 0) {
+        const label = `EMBER LEFT: ${left}`;
+        context.font = `bold 18px ${FONT}`;
+        const width = context.measureText(label).width;
+        hudPlate(FIELD.width / 2 - width / 2 - 12, 18, width + 24, 30);
+        text(label, FIELD.width / 2, 40, 18, PALETTE.text, 'center', 'bold');
+      }
+    }
+    // Boss HP bar, top centre under the ember counter, while the Maw lives.
+    const maw = liveMaw(state);
+    if (maw) {
+      const x = (FIELD.width - BOSS_BAR.width) / 2;
+      bar(x, BOSS_BAR.y, BOSS_BAR.width, BOSS_BAR.height, maw.hp / maw.maxHp,
+        PALETTE.emberDeep, `ASHEN MAW ${Math.ceil(maw.hp)}`);
     }
   }
 
@@ -235,8 +376,47 @@ export function createRenderer(canvas) {
     context.fillRect(0, 0, FIELD.width, FIELD.height);
   }
 
+  /** One deterministic Ashen Maw silhouette: dark body, amber eyes, fixed spot. */
+  function drawMawSilhouette(x, y, radius) {
+    context.globalAlpha = 0.9;
+    circle(x, y, radius, '#2a0d0d');
+    circle(x, y, radius * 0.55, '#1a0505');
+    circle(x - radius * 0.28, y - radius * 0.18, radius * 0.09, PALETTE.amber);
+    circle(x + radius * 0.28, y - radius * 0.18, radius * 0.09, PALETTE.amber);
+    context.globalAlpha = 1;
+  }
+
+  /** The lantern with three embers orbiting it, for the title screen. The orbit
+   *  angle comes from the game clock, so a staged title shot is deterministic. */
+  function drawTitleLantern(state) {
+    const cx = FIELD.width / 2;
+    const cy = 96;
+    const glow = context.createRadialGradient(cx, cy, 4, cx, cy, 72);
+    glow.addColorStop(0, '#ffe9b066');
+    glow.addColorStop(0.5, '#ffb34733');
+    glow.addColorStop(1, '#ffb34700');
+    context.fillStyle = glow;
+    context.beginPath();
+    context.arc(cx, cy, 72, 0, Math.PI * 2);
+    context.fill();
+    circle(cx, cy, 20, '#3a2a12');
+    circle(cx, cy, 15, PALETTE.lanternGlow);
+    context.fillStyle = '#fff3c4';
+    context.beginPath();
+    context.ellipse(cx, cy - 3, 3.5, 7, 0, 0, Math.PI * 2);
+    context.fill();
+    for (let k = 0; k < 3; k += 1) {
+      const angle = state.time * 0.9 + (k / 3) * Math.PI * 2;
+      circle(cx + Math.cos(angle) * 52, cy + Math.sin(angle) * 34, 6, PALETTE.ember);
+      circle(cx + Math.cos(angle) * 52, cy + Math.sin(angle) * 34, 2.5, '#fff3c4');
+    }
+  }
+
   function drawTitle(state, best) {
     dimPanel();
+    drawMawSilhouette(150, 130, 46);
+    drawMawSilhouette(1130, 130, 46);
+    drawTitleLantern(state);
     text('EMBERKEEP', FIELD.width / 2, 190, 84, PALETTE.amber, 'center', 'bold');
     text('You are the last Keeper of the Ember.', FIELD.width / 2, 240, 24, PALETTE.text, 'center');
     text('The ember horde crawls out of the indigo night to swallow the lantern.', FIELD.width / 2, 274, 20, PALETTE.muted, 'center');
@@ -264,14 +444,18 @@ export function createRenderer(canvas) {
       const choice = state.choices[i];
       const x = startX + i * (cardW + gap);
       const y = 250;
+      const stacks = state.upgradeStacks[choice.id] || 0;
       context.fillStyle = PALETTE.panel;
       context.fillRect(x, y, cardW, cardH);
       context.strokeStyle = PALETTE.panelEdge;
       context.lineWidth = 2;
       context.strokeRect(x, y, cardW, cardH);
-      text(`[${i + 1}]`, x + cardW / 2, y + 52, 22, PALETTE.amber, 'center', 'bold');
-      text(choice.name, x + cardW / 2, y + 96, 26, PALETTE.text, 'center', 'bold');
-      text(choice.desc, x + cardW / 2, y + 132, 17, PALETTE.muted, 'center');
+      drawIcon(choice.icon, x + cardW / 2, y + 34);
+      text(`[${i + 1}]`, x + cardW / 2, y + 66, 20, PALETTE.amber, 'center', 'bold');
+      text(choice.name, x + cardW / 2, y + 102, 26, PALETTE.text, 'center', 'bold');
+      text(choice.desc, x + cardW / 2, y + 134, 17, PALETTE.muted, 'center');
+      text(stacks > 0 ? `Lv ${stacks} → Lv ${stacks + 1}` : 'Lv 1 — new blessing',
+        x + cardW / 2, y + 160, 14, stacks > 0 ? PALETTE.amber : PALETTE.muted, 'center', 'bold');
     }
     text('Press 1, 2 or 3 — or click a card', FIELD.width / 2, 480, 20, PALETTE.muted, 'center');
   }
@@ -284,6 +468,11 @@ export function createRenderer(canvas) {
     text(`SCORE  ${state.score}`, FIELD.width / 2, 330, 30, PALETTE.text, 'center', 'bold');
     text(`WAVE REACHED  ${state.wave}      EMBERS FELLED  ${state.kills}`, FIELD.width / 2, 374, 22, PALETTE.text, 'center');
     text(`BEST  ${Math.max(best, state.score)}`, FIELD.width / 2, 414, 22, PALETTE.amber, 'center', 'bold');
+    const taken = UPGRADE_POOL.filter((u) => (state.upgradeStacks[u.id] || 0) > 0);
+    const blessings = taken.length > 0
+      ? taken.map((u) => `${u.name} Lv${state.upgradeStacks[u.id]}`).join(' · ')
+      : 'none — the night gave no quarter';
+    text(`BLESSINGS TAKEN: ${blessings}`, FIELD.width / 2, 452, 16, PALETTE.muted, 'center');
     const pulse = 0.7 + Math.sin(state.time * 3) * 0.3;
     context.globalAlpha = pulse;
     text('CLICK OR PRESS ENTER TO PLAY AGAIN', FIELD.width / 2, 500, 26, '#ffffff', 'center', 'bold');

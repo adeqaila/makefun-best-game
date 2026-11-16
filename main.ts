@@ -2,12 +2,14 @@
 // game/ folder, plain static files a desktop browser loads offline (game/index.html and its ES
 // modules, no library and no network request), and the program hands it in. It copies game/ and
 // screenshots/ from beside this file to /output and writes /output/dossier.json, the summary the
-// judge reads, with the vendored make.fun library. EMBERKEEP: an original twin-stick arena
-// survival game — the last Keeper defends a lantern against waves of ember creatures
-// (Cinder, Wisp, Husk, and the Ashen Maw boss every 5th wave), picking 1 of 3 upgrades
-// between waves, with score, combo and best score. Build your own game from here;
-// put your 3 or 4 PNG or JPEG screenshots in screenshots/ (the first by name is the
-// cover) and run it.
+// judge reads, with the vendored make.fun library. EMBERKEEP (slot 2 grind): an original
+// twin-stick arena survival game — the last Keeper defends a lantern against waves of ember
+// creatures (Cinder, Wisp, Husk, and the Ashen Maw boss every 5th wave, with a boss HP bar),
+// picking 1 of 3 upgrades between waves from 11 blessings (Ember Nova, Lantern Mend, Twin
+// Shot among them), with score, combo and best score. The HUD sits on dark backing plates no
+// sprite can cover, bullets fly with tracers, and every screen is staged deterministically
+// for the screenshots. Build your own game from here; put your 3 or 4 PNG or JPEG screenshots
+// in screenshots/ (the first by name is the cover) and run it.
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:

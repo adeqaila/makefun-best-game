@@ -2,11 +2,18 @@
 // is part of the entry). How this game meets the five criteria, one line each:
 // 1. Complete game: title/start + play + upgrade + results/restart screens in
 //    render.js (SCREEN_TITLE/PLAY/UPGRADE/OVER); goal, rules and controls on the
-//    title screen; HUD (wave/score/combo/best/HP/lantern) in render.js drawHud();
-//    lose when Keeper HP or lantern HP hits 0, restart from the results screen.
-// 2. Fun & depth: twin-stick loop in player.js updatePlayer(); waves that grow in
-//    waves.js startWave()/waveMix() (boss Ashen Maw every 5th wave); a real choice
-//    between waves in upgrades.js rollChoices()/applyUpgrade() (8 upgrades, stacks).
+//    title screen; HUD (wave/score/combo/best/HP/lantern, on dark backing plates
+//    no sprite can cover, in render.js drawHud()) with a boss HP bar while the
+//    Ashen Maw lives (render.js liveMaw()); lose when Keeper HP or lantern HP
+//    hits 0, restart from the results screen, which also lists the blessings
+//    taken (render.js drawOver()).
+// 2. Fun & depth: twin-stick loop in player.js updatePlayer() (Twin Shot adds a
+//    second parallel barrel per stack); waves that grow in waves.js startWave()/
+//    waveMix() (boss Ashen Maw every 5th wave); a real choice between waves in
+//    upgrades.js rollChoices()/applyUpgrade() (11 blessings, stacks to 3 —
+//    Ember Nova burns nearby embers every 3 s, Lantern Mend repairs the
+//    lantern itself, Twin Shot doubles the barrels); the horde is denser and
+//    ~35% larger than slot 1 (config.js ENEMY/WAVE) so fights stay busy.
 // 3. Feel & polish: fixed 1/60 s steps in main.js frame(); hit flash + particles +
 //    screen shake in particles.js; synthesised WebAudio SFX in audio.js (no files).
 // 4. Look & originality: an original premise (last Keeper of the Ember, indigo night

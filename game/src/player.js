@@ -1,6 +1,12 @@
 // The Keeper: movement, aiming, firing, pickups and hurt. One player object lives
 // on the game state; this file owns how it changes. Bullets and pickups are plain
 // pools on the state, allocated once at boot so the hot loop allocates nothing.
+//
+// Full grind (slot 2, variant C): the Keeper gains two new upgradeable systems.
+// Twin Shot adds a second, parallel barrel beside every projectile (a sideways
+// offset copy of the same shot, not Split Shot's fan), and Ember Nova is a
+// periodic burst whose timer lives here and whose damage is resolved in
+// enemies.js updateEnemies(), where the horde already lives.
 
 import { BULLET, FIELD, LANTERN, PICKUP, PLAYER } from './config.js';
 
@@ -22,6 +28,11 @@ export function createPlayer() {
     magnet: 0,
     shield: 0,
     regen: 0,
+    // Twin Shot: parallel barrels, one extra copy per stack, offset sideways.
+    twin: 0,
+    // Ember Nova: periodic burst; 0 means the blessing was never taken.
+    nova: 0,
+    novaTimer: 0,
   };
 }
 
@@ -61,22 +72,39 @@ export function stepBullets(state, dt) {
   }
 }
 
+/** Launch one bullet from the pool at (x, y) along `angle`; false when dry. */
+function spawnBullet(state, x, y, angle) {
+  const bullet = state.bullets.find((b) => !b.active);
+  if (!bullet) return false;
+  bullet.active = true;
+  bullet.x = x;
+  bullet.y = y;
+  bullet.vx = Math.cos(angle) * PLAYER.bulletSpeed;
+  bullet.vy = Math.sin(angle) * PLAYER.bulletSpeed;
+  bullet.life = BULLET.life;
+  bullet.damage = state.player.damage;
+  bullet.pierce = 0;
+  return true;
+}
+
 function fireBullets(state) {
   const player = state.player;
   const count = player.projectiles;
   for (let i = 0; i < count; i += 1) {
-    const bullet = state.bullets.find((b) => !b.active);
-    if (!bullet) return;
     const offset = count === 1 ? 0 : (i - (count - 1) / 2) * player.spread * 2;
     const angle = player.aimAngle + offset;
-    bullet.active = true;
-    bullet.x = player.x + Math.cos(angle) * (PLAYER.radius + 6);
-    bullet.y = player.y + Math.sin(angle) * (PLAYER.radius + 6);
-    bullet.vx = Math.cos(angle) * PLAYER.bulletSpeed;
-    bullet.vy = Math.sin(angle) * PLAYER.bulletSpeed;
-    bullet.life = BULLET.life;
-    bullet.damage = player.damage;
-    bullet.pierce = 0;
+    const baseX = player.x + Math.cos(angle) * (PLAYER.radius + 6);
+    const baseY = player.y + Math.sin(angle) * (PLAYER.radius + 6);
+    spawnBullet(state, baseX, baseY, angle);
+    // Twin Shot: the same shot again from a second barrel beside the first —
+    // same angle, shifted sideways, alternating sides per stack.
+    for (let t = 0; t < player.twin; t += 1) {
+      const side = t % 2 === 0 ? 1 : -1;
+      const shift = 12 * Math.ceil((t + 1) / 2) * side;
+      const px = -Math.sin(angle);
+      const py = Math.cos(angle);
+      spawnBullet(state, baseX + px * shift, baseY + py * shift, angle);
+    }
   }
   state.sfx.push('shoot');
 }
