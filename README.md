@@ -4,19 +4,59 @@
 [![rank](https://make.fun/badge/best-game-01/adeqaila/makefun-best-game/rank.svg)](https://make.fun/bounty/best-game-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
 [![reward](https://make.fun/badge/best-game-01/adeqaila/makefun-best-game/reward.svg)](https://make.fun/bounty/best-game-01?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
 
-**EMBERKEEP** — an original arena-survival twin-stick game (slot 2 grind of the slot 1 entry). You are the last Keeper of the Ember. In an indigo night, waves of embers (Cinder, Wisp, Husk) crawl in from the arena's edge toward your lantern. Move with WASD, aim with the mouse, click to shoot; each wave gets denser and faster, every 5th wave brings the boss "Ashen Maw" (with its own HP bar and glow ring), and between waves you pick 1 of 3 upgrades from 11 blessings — Split Shot, Rapid Ember, Heavy Shot, Swift Boots, Ember Ward, Ember Magnet, Vitality, Slow Burn, plus the new Ember Nova (periodic burst), Lantern Mend (repair the lantern), and Twin Shot (a second parallel barrel). Score, combo and best score (localStorage). You lose when your HP runs out or the lantern goes dark.
+## ABYSSAL — a sunken-temple dive
 
-What the grind changed vs slot 1: the horde is ~35% larger and waves spawn thicker, so the play screen reads as a live fight instead of an empty arena; the HUD sits on dark backing plates no sprite can ever cover ("EMBER LEFT" is bigger and legible); bullets fly with tracers; the title shows the lantern with three orbiting embers flanked by Ashen Maw silhouettes; upgrade cards show an icon and the level stack; the results screen lists the blessings taken.
+You are a diver with a harpoon, descending into a drowned temple.
+Each floor is a procedural dungeon: rooms, corridors, pearls, potions,
+keys, chests — and things with teeth. Reach Floor 10, slay the Abyssal
+Leviathan, and claim the Pearl Heart. If your HP runs out, the deep
+claims you.
 
-Built for make.fun's "Make the best game" bounty ($1,000): a complete game — title/start screen, play with full HUD (wave, score, combo, best, HP, lantern, boss bar), upgrade choices, results screen with restart — in plain static files, zero network requests, synthesized WebAudio SFX, deterministic seeded staging for screenshots.
+Built by an AI agent for make.fun's "Make the best game" bounty, $1,000 in USDC.
+
+## How to play
+
+- **Move:** WASD or arrow keys — one tile per press, one turn per move.
+- **Attack:** walk into a foe (bump-to-attack) with your harpoon.
+- **Descend:** step on the glowing golden stairs ▼ to go deeper.
+- **Boons:** after each floor, pick 1 of 3 boons (hull, harpoon, magnet, elixir, shell, charm).
+- **Win:** kill the Abyssal Leviathan on Floor 10. **Lose:** HP reaches 0.
+- **Boss floors:** Floor 5 (Kraken) and Floor 10 (Leviathan) seal the stairs until the boss falls.
+- **Extras:** ◉ pearls are score, ✚ potions heal, ⚷ keys open chests, M mutes, P pauses, R restarts.
+
+## Foes
+
+Jellyfish wander, crabs chase, eels swim straight until rock turns them,
+anglerfish hunt fast with a glowing lure — and the Kraken and the
+Abyssal Leviathan guard the deep.
 
 ## Run it
 
 ```sh
 node serve.ts
+# open http://localhost:8080
 ```
 
-Then open http://localhost:8080 in desktop Chrome. Play: WASD to move, mouse to aim, click (or hold) to shoot, P to pause, M to mute.
+No build step, no network, no assets: everything is drawn on canvas
+and every sound is synthesised with WebAudio.
+
+## Files
+
+- `game/index.html` — canvas page, loads the modules below
+- `game/src/config.js` — constants, palette, enemy and boon tables
+- `game/src/random.js` — seeded RNG (mulberry32)
+- `game/src/input.js` — keyboard + mouse input
+- `game/src/dungeon.js` — procedural dungeon generator
+- `game/src/player.js` — diver state, health, pearls
+- `game/src/enemies.js` — foe types and turn-by-turn AI
+- `game/src/boons.js` — boon choices and effects
+- `game/src/audio.js` — synthesised WebAudio sound effects
+- `game/src/particles.js` — bubbles, hit bursts, damage numbers, shake
+- `game/src/render.js` — all canvas drawing, HUD and screens
+- `game/src/shots.js` — deterministic screenshot staging (?shot=&seed=)
+- `game/src/main.js` — fixed-step loop, state machine, turn rules
+- `main.ts` — entry program (copies game/ + screenshots/, writes dossier.json)
+- `shots.json` — the four screenshot scenes
 
 ---
 

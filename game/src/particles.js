@@ -1,102 +1,124 @@
-// Particles, floating score text and screen shake. One preallocated pool, reused
-// every frame, so the hot loop allocates nothing: a burst just overwrites the
-// oldest slot. All drawing lives in render.js; this file only owns the numbers.
-// The randomness comes from a dedicated seeded generator (separate from the
-// gameplay RNG) so a staged screenshot is byte-identical on every run.
+// ABYSSAL — particles.js
+// One job: bubbles, hit bursts, floating damage numbers, screen shake
+// and the drifting plankton that makes the deep feel alive.
 
-import { PARTICLES } from './config.js';
+function createFx() {
+  return { parts: [], texts: [], shake: 0, plankton: [] };
+}
 
-export function createParticles(random) {
-  const rng = random || Math.random;
-  const pool = [];
-  for (let i = 0; i < PARTICLES.max; i += 1) {
-    pool.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1, size: 2, color: '#ffffff' });
-  }
-  const texts = [];
-  for (let i = 0; i < PARTICLES.texts; i += 1) {
-    texts.push({ active: false, x: 0, y: 0, life: 0, value: '' });
-  }
-  let cursor = 0;
-  let textCursor = 0;
-  let shakeTime = 0;
-  let shakePower = 0;
-
-  function burst(x, y, color, count, speed, size) {
-    for (let n = 0; n < count; n += 1) {
-      const p = pool[cursor];
-      cursor = (cursor + 1) % pool.length;
-      const angle = rng() * Math.PI * 2;
-      const power = speed * (0.35 + rng() * 0.65);
-      p.active = true;
-      p.x = x;
-      p.y = y;
-      p.vx = Math.cos(angle) * power;
-      p.vy = Math.sin(angle) * power;
-      p.life = 0.45 + rng() * 0.4;
-      p.max = p.life;
-      p.size = size * (0.6 + rng() * 0.8);
-      p.color = color;
-    }
-  }
-
+function tileCenter(x, y) {
   return {
-    pool,
-    texts,
-    burst,
-    emberBurst(x, y) {
-      burst(x, y, '#ffb347', 14, 170, 3.5);
-      burst(x, y, '#ff7a2f', 8, 110, 2.5);
-    },
-    hitSpark(x, y) {
-      burst(x, y, '#ffe9b0', 5, 130, 2.5);
-    },
-    lanternBurst(x, y) {
-      burst(x, y, '#ffcf7d', 18, 220, 4);
-    },
-    addText(x, y, value) {
-      const t = texts[textCursor];
-      textCursor = (textCursor + 1) % texts.length;
-      t.active = true;
-      t.x = x;
-      t.y = y;
-      t.life = 0.9;
-      t.value = value;
-    },
-    shake(power, seconds) {
-      shakePower = Math.max(shakePower, power);
-      shakeTime = Math.max(shakeTime, seconds);
-    },
-    /** Current shake offset, decaying; call once per frame before drawing. */
-    shakeOffset(dt) {
-      if (shakeTime <= 0) return { x: 0, y: 0 };
-      shakeTime -= dt;
-      const decay = Math.max(0, shakeTime) * shakePower;
-      return {
-        x: (rng() * 2 - 1) * decay,
-        y: (rng() * 2 - 1) * decay,
-      };
-    },
-    step(dt) {
-      for (let i = 0; i < pool.length; i += 1) {
-        const p = pool[i];
-        if (!p.active) continue;
-        p.life -= dt;
-        if (p.life <= 0) {
-          p.active = false;
-          continue;
-        }
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.vx *= 0.96;
-        p.vy *= 0.96;
-      }
-      for (let i = 0; i < texts.length; i += 1) {
-        const t = texts[i];
-        if (!t.active) continue;
-        t.life -= dt;
-        t.y -= 34 * dt;
-        if (t.life <= 0) t.active = false;
-      }
-    },
+    x: CONFIG.originX + x * CONFIG.tile + CONFIG.tile / 2,
+    y: CONFIG.originY + y * CONFIG.tile + CONFIG.tile / 2,
   };
+}
+
+function spawnBubbles(fx, x, y, n) {
+  const c = tileCenter(x, y);
+  for (let i = 0; i < n; i++) {
+    fx.parts.push({
+      x: c.x + (Math.random() - 0.5) * 20,
+      y: c.y + (Math.random() - 0.5) * 20,
+      vx: (Math.random() - 0.5) * 12,
+      vy: -18 - Math.random() * 22,
+      life: 0.7 + Math.random() * 0.5,
+      max: 1.2,
+      size: 2 + Math.random() * 3,
+      color: '#7dd3fc',
+      kind: 'bubble',
+    });
+  }
+}
+
+function spawnHit(fx, x, y, color) {
+  const c = tileCenter(x, y);
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    fx.parts.push({
+      x: c.x, y: c.y,
+      vx: Math.cos(a) * (30 + Math.random() * 50),
+      vy: Math.sin(a) * (30 + Math.random() * 50),
+      life: 0.4 + Math.random() * 0.3,
+      max: 0.7,
+      size: 2 + Math.random() * 3,
+      color: color,
+      kind: 'spark',
+    });
+  }
+  spawnBubbles(fx, x, y, 4);
+}
+
+function addFloatText(fx, x, y, text, color) {
+  const c = tileCenter(x, y);
+  fx.texts.push({ x: c.x, y: c.y - 14, text, color, life: 0.9, max: 0.9 });
+}
+
+function addShake(fx, n) {
+  fx.shake = Math.max(fx.shake, n);
+}
+
+function initPlankton(fx, rng) {
+  fx.plankton = [];
+  for (let i = 0; i < 46; i++) {
+    fx.plankton.push({
+      x: rng() * CONFIG.canvasW,
+      y: rng() * CONFIG.canvasH,
+      r: 0.8 + rng() * 1.8,
+      drift: 4 + rng() * 8,
+      phase: rng() * Math.PI * 2,
+    });
+  }
+}
+
+function updateFx(fx, dt, time) {
+  for (const p of fx.parts) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy -= 6 * dt;
+    p.life -= dt;
+  }
+  fx.parts = fx.parts.filter((p) => p.life > 0);
+  for (const t of fx.texts) {
+    t.y -= 26 * dt;
+    t.life -= dt;
+  }
+  fx.texts = fx.texts.filter((t) => t.life > 0);
+  if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
+  for (const p of fx.plankton) {
+    p.y -= p.drift * dt;
+    p.x += Math.sin(time * 0.6 + p.phase) * 6 * dt;
+    if (p.y < -4) { p.y = CONFIG.canvasH + 4; }
+  }
+}
+
+function drawFx(ctx, fx) {
+  for (const p of fx.parts) {
+    ctx.globalAlpha = Math.max(0, p.life / p.max);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  for (const t of fx.texts) {
+    ctx.globalAlpha = Math.max(0, t.life / t.max);
+    ctx.font = 'bold 20px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.text, t.x, t.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPlankton(ctx, fx, time) {
+  ctx.save();
+  for (const p of fx.plankton) {
+    const tw = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(time * 1.4 + p.phase));
+    ctx.globalAlpha = tw;
+    ctx.fillStyle = '#67e8f9';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }

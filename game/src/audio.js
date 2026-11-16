@@ -1,89 +1,61 @@
-// Synthesised sound effects, WebAudio only: no audio files, no network, nothing to
-// load. Each effect is a short oscillator burst shaped by a gain envelope. The audio
-// context is created lazily on the first user gesture (browsers block it before
-// that), and M toggles mute. Nothing here throws when audio is unavailable.
+// ABYSSAL — audio.js
+// One job: every sound, synthesised live with WebAudio — no audio files.
+// The context starts on the first user gesture; M toggles mute.
 
-export function createAudio() {
-  let context = null;
-  let muted = false;
+const AudioSys = { ctx: null, muted: false };
 
-  function ensure() {
-    if (context) return context;
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return null;
-      context = new AudioContext();
-    } catch {
-      context = null;
-    }
-    return context;
+function ensureAudio() {
+  if (AudioSys.ctx) return AudioSys.ctx;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    AudioSys.ctx = new AC();
+  } catch (err) {
+    AudioSys.ctx = null;
   }
+  return AudioSys.ctx;
+}
 
-  /** A tone that slides from `from` Hz to `to` Hz over `seconds`, then fades out. */
-  function tone(from, to, seconds, volume, shape) {
-    if (muted) return;
-    const ctx = ensure();
-    if (!ctx || ctx.state === 'suspended') {
-      if (ctx) ctx.resume().catch(() => {});
-      if (!ctx || ctx.state === 'suspended') return;
-    }
-    try {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const now = ctx.currentTime;
-      osc.type = shape || 'sine';
-      osc.frequency.setValueAtTime(Math.max(1, from), now);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(1, to), now + seconds);
-      gain.gain.setValueAtTime(volume, now);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + seconds);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + seconds + 0.02);
-    } catch {
-      // A failed blip must never break the game loop.
-    }
-  }
+function tone(freq, dur, type, vol, slideTo) {
+  const ctx = ensureAudio();
+  if (!ctx || AudioSys.muted) return;
+  try {
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    gain.gain.setValueAtTime(vol || 0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  } catch (err) { /* sound is optional; the game plays on silently */ }
+}
 
-  return {
-    unlock() {
-      const ctx = ensure();
-      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
-    },
-    toggleMute() {
-      muted = !muted;
-      return muted;
-    },
-    isMuted() {
-      return muted;
-    },
-    shoot() {
-      tone(740, 190, 0.09, 0.10, 'square');
-    },
-    hit() {
-      tone(300, 150, 0.06, 0.08, 'triangle');
-    },
-    kill() {
-      tone(520, 60, 0.22, 0.14, 'sawtooth');
-    },
-    pickup() {
-      tone(880, 1320, 0.12, 0.10, 'sine');
-    },
-    hurt() {
-      tone(180, 70, 0.25, 0.16, 'sawtooth');
-    },
-    waveClear() {
-      tone(523, 523, 0.12, 0.10, 'sine');
-      tone(659, 659, 0.12, 0.10, 'sine');
-      tone(784, 784, 0.2, 0.12, 'sine');
-    },
-    upgrade() {
-      tone(440, 880, 0.18, 0.12, 'triangle');
-    },
-    boss() {
-      tone(110, 55, 0.5, 0.18, 'sawtooth');
-    },
-    gameOver() {
-      tone(392, 98, 0.7, 0.14, 'triangle');
-    },
-  };
+function playSfx(name) {
+  if (AudioSys.muted) return;
+  if (name === 'move') tone(220, 0.06, 'sine', 0.05, 180);
+  else if (name === 'bump') tone(90, 0.08, 'square', 0.06, 70);
+  else if (name === 'hit') tone(320, 0.09, 'square', 0.10, 140);
+  else if (name === 'kill') { tone(520, 0.12, 'triangle', 0.12, 180); tone(780, 0.16, 'sine', 0.08, 320); }
+  else if (name === 'hurt') tone(140, 0.18, 'sawtooth', 0.12, 60);
+  else if (name === 'pearl') tone(880, 0.12, 'sine', 0.10, 1320);
+  else if (name === 'potion') { tone(440, 0.1, 'sine', 0.09, 660); tone(660, 0.14, 'sine', 0.08, 990); }
+  else if (name === 'key') tone(1200, 0.08, 'triangle', 0.08, 1500);
+  else if (name === 'chest') { tone(523, 0.1, 'triangle', 0.10); tone(784, 0.16, 'triangle', 0.10); }
+  else if (name === 'stairs') { tone(330, 0.2, 'sine', 0.10, 660); tone(495, 0.25, 'sine', 0.08, 990); }
+  else if (name === 'boon') { tone(392, 0.12, 'triangle', 0.10); tone(523, 0.12, 'triangle', 0.10); tone(659, 0.2, 'triangle', 0.10); }
+  else if (name === 'thorns') tone(200, 0.1, 'square', 0.08, 90);
+  else if (name === 'win') { tone(523, 0.18, 'triangle', 0.12); tone(659, 0.18, 'triangle', 0.12); tone(784, 0.3, 'triangle', 0.12); }
+  else if (name === 'lose') { tone(220, 0.4, 'sawtooth', 0.10, 55); }
+  else if (name === 'boss') tone(70, 0.5, 'sawtooth', 0.14, 45);
+}
+
+function toggleMute() {
+  AudioSys.muted = !AudioSys.muted;
+  return AudioSys.muted;
 }

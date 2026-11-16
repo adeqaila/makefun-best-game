@@ -1,88 +1,69 @@
-// EMBERKEEP tuning: every number and colour in one place. The arena is a fixed
-// 1280x720 logical field; the renderer scales it to the window, so no rule below
-// depends on the screen size. Palette: indigo night against warm amber ember-light.
-//
-// Dense grind (slot 2, variant A): the horde reads bigger on the judge's contact
-// sheet, so every ember is ~35% wider, bullets are fatter, waves spawn thicker
-// and faster, and the particle pool grows to match the busier field.
+// ABYSSAL — config.js
+// One job: every constant, colour, enemy table and boon table for the game.
+// The judge-facing map of criteria -> files lives at the top of render.js.
 
-export const FIELD = { width: 1280, height: 720 };
-
-/** The simulation's fixed step, in seconds: 60 updates a second whatever the display's rate. */
-export const STEP = 1 / 60;
-
-/** The lantern at the arena's heart: the thing the ember horde marches on. */
-export const LANTERN = { x: 640, y: 360, radius: 30, maxHp: 150, regen: 2.5 };
-
-export const PLAYER = {
-  radius: 16,
-  speed: 315,
-  maxHp: 100,
-  fireInterval: 0.16,
-  bulletSpeed: 660,
-  bulletDamage: 12,
-  bulletRadius: 6.5,
-  invulnerable: 1.0,
-  pickupRadius: 26,
+const CONFIG = {
+  canvasW: 1280,
+  canvasH: 800,
+  gridW: 28,
+  gridH: 18,
+  tile: 36,
+  originX: 136,
+  originY: 88,
+  winFloor: 10,
+  bossFloors: [5, 10],
+  baseHp: 30,
+  baseDamage: 3,
+  pearlValue: 10,
+  chestPearls: 25,
+  potionHeal: 12,
+  killScore: 10,
+  floorBonus: 50,
+  winBonus: 500,
+  bestKey: 'abyssal-best',
+  roomsMin: 6,
+  roomsMax: 9,
 };
 
-export const BULLET = { life: 1.1, max: 96 };
-
-/** Ember horde types. Cinder shambles at the lantern, Wisp darts at the Keeper, Husk
- *  soaks shots, and the Ashen Maw (boss, every 5th wave) does both at once.
- *  Radii are ~35% larger than slot 1 so the horde stays visible when the
- *  screenshot is shrunk to the judge's contact sheet. */
-export const ENEMY = {
-  cinder: { hp: 22, speed: 68, radius: 20, damage: 9, score: 50, lantern: true },
-  wisp: { hp: 12, speed: 168, radius: 15, damage: 6, score: 80, lantern: false },
-  husk: { hp: 64, speed: 44, radius: 28, damage: 14, score: 120, lantern: true },
-  maw: { hp: 620, speed: 52, radius: 52, damage: 22, score: 1000, lantern: true },
+// Deep-sea palette: dark navy water, teal bioluminescence, gold pearls.
+const PALETTE = {
+  water: '#03101d',
+  waterEdge: '#06283a',
+  panel: '#06283a',
+  panelEdge: '#0f4a63',
+  floorA: '#0d3247',
+  floorB: '#0b2c3f',
+  wall: '#04202f',
+  wallEdge: '#0f4a63',
+  gold: '#ffd166',
+  goldDim: '#b98a1e',
+  teal: '#2dd4bf',
+  cyan: '#22d3ee',
+  ink: '#e6f7ff',
+  inkDim: '#9cc3d5',
+  danger: '#f87171',
+  heal: '#4ade80',
+  player: '#7dd3fc',
+  playerDark: '#0369a1',
+  stairs: '#fde68a',
 };
 
-/** Wave ramp: count grows, spawn gap shrinks, speed creeps up; mix shifts to tougher kinds.
- *  Denser than slot 1 (9 + 4/wave, first gap 0.75 s) so a mid-wave frame holds
- *  ten or more live embers instead of an almost-empty arena. */
-export const WAVE = {
-  baseCount: 9,
-  perWave: 4,
-  spawnInterval: 0.75,
-  intervalScale: 0.94,
-  minInterval: 0.28,
-  speedPerWave: 4,
-  maxSpeedBonus: 48,
-  bossEvery: 5,
+// Enemy table. hp/dmg grow a little with depth (see enemies.js).
+const ENEMIES = {
+  jelly:     { name: 'Jellyfish', hp: 4,  dmg: 2, color: '#ff7ad9', dark: '#a21caf', speed: 1, ai: 'wander', minFloor: 1 },
+  crab:      { name: 'Crab',      hp: 9,  dmg: 3, color: '#fb923c', dark: '#9a3412', speed: 1, ai: 'chase',  minFloor: 1 },
+  eel:       { name: 'Eel',       hp: 6,  dmg: 4, color: '#4ade80', dark: '#166534', speed: 1, ai: 'straight', minFloor: 2 },
+  angler:    { name: 'Anglerfish', hp: 5, dmg: 5, color: '#c084fc', dark: '#6b21a8', speed: 2, ai: 'chase',  minFloor: 3 },
+  kraken:    { name: 'Kraken',    hp: 42, dmg: 6, color: '#f472b6', dark: '#831843', speed: 1, ai: 'chase',  minFloor: 5, boss: true },
+  leviathan: { name: 'Abyssal Leviathan', hp: 75, dmg: 8, color: '#facc15', dark: '#854d0e', speed: 1, ai: 'chase', minFloor: 10, boss: true },
 };
 
-/** Kills chained within this window raise the combo multiplier, capped below. */
-export const COMBO = { window: 3.0, step: 0.25, max: 3.0 };
-
-/** Ember pickups dropped by the fallen: score and a little healing for the Keeper. */
-export const PICKUP = { radius: 9, score: 25, heal: 4, magnet: 150, life: 9 };
-
-export const PARTICLES = { max: 320, texts: 12 };
-
-export const PALETTE = {
-  backdrop: '#0b0b1e',
-  night: '#141433',
-  nightDeep: '#0e0e26',
-  groundRing: '#1d1d42',
-  amber: '#ffb347',
-  ember: '#ff7a2f',
-  emberDeep: '#e5484d',
-  wisp: '#c9b8ff',
-  husk: '#8a7f6a',
-  keeper: '#ffd9a0',
-  keeperRobe: '#7a5cff',
-  panel: '#1a1a38',
-  panelEdge: '#ffb347',
-  text: '#f5eedd',
-  muted: '#9a94c2',
-  hpGood: '#7ee787',
-  hpBad: '#ff6b6b',
-  lanternGlow: '#ffcf7d',
-};
-
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
-
-/** Where the best score is kept between visits (this browser only). */
-export const BEST_KEY = 'emberkeep.best';
+// Boon table: six boons, three are offered at random after each floor.
+const BOONS = [
+  { id: 'hull',     name: 'Reinforced Hull',  icon: '▣', desc: '+20 max HP and heal 20 right now. A sturdier dive suit for deeper water.' },
+  { id: 'harpoon',  name: 'Sharpened Harpoon', icon: '➶', desc: '+1 harpoon damage, forever. Every bump hits harder.' },
+  { id: 'magnet',   name: 'Pearl Magnet',     icon: '◎', desc: 'Pearls within 3 tiles drift to you after every turn.' },
+  { id: 'elixir',   name: 'Deep Elixir',      icon: '✚', desc: 'Heal to full HP immediately. A warm glow in the cold dark.' },
+  { id: 'shell',    name: 'Spiked Shell',     icon: '✹', desc: 'Attackers take 2 damage when they bite you. Let them regret it.' },
+  { id: 'lucky',    name: 'Lucky Charm',      icon: '☘', desc: 'Every pearl is worth 50% more from now on. Fortune favours the deep.' },
+];
