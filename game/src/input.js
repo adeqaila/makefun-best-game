@@ -1,7 +1,8 @@
 // ABYSSAL — input.js
 // One job: keyboard and mouse input, translated into game actions.
-// WASD / arrows move one tile (one turn). Enter/Space confirms,
-// M mutes, P or Escape pauses, R restarts on the results screen.
+// WASD / arrows move one tile (one turn). '.' or clicking your own tile
+// waits one turn (foes act). Enter/Space confirms, M mutes, P or Escape
+// pauses, R restarts on the results screen.
 
 function attachInput(canvas, handlers) {
   const moves = {
@@ -13,6 +14,11 @@ function attachInput(canvas, handlers) {
     if (moves[key]) {
       e.preventDefault();
       handlers.onMove(moves[key][0], moves[key][1]);
+      return;
+    }
+    if (key === '.') {
+      e.preventDefault();
+      handlers.onWait();
       return;
     }
     if (key === 'enter' || key === ' ') {

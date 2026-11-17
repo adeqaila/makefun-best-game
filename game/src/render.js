@@ -6,7 +6,8 @@
 // 1. Complete game: goal/win/lose/score/start/restart/HUD — see drawTitle,
 //    drawHud, drawResults, and the four screenshots (title, play, boons, victory).
 // 2. Fun & depth: turn-based dungeon delve, 10 floors, 6 enemy kinds, 2 bosses,
-//    6 boons to choose from — see dungeon.js, enemies.js, boons.js, main.js.
+//    8 boons to choose from, wait-a-turn tactics — see dungeon.js, enemies.js,
+//    boons.js, main.js (doWaitTurn).
 // 3. Feel & polish: instant keyboard turns, hit flash, floating damage,
 //    screen shake, bubbles, synthesised WebAudio — see particles.js, audio.js.
 // 4. Look & originality: an original sunken-temple dive, deep-navy + teal +
@@ -50,14 +51,14 @@ function drawDungeon(ctx, state) {
   const s = d.stairs;
   const sc = tileCenter(s.x, s.y);
   ctx.save();
-  ctx.globalAlpha = s.sealed ? 0.35 : 0.9;
+  ctx.globalAlpha = s.sealed ? 0.35 : 0.95;
   ctx.fillStyle = PALETTE.stairs;
   ctx.beginPath();
-  ctx.arc(sc.x, sc.y, 13, 0, Math.PI * 2);
+  ctx.arc(sc.x, sc.y, 14, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = s.sealed ? 0.2 : 0.35;
+  ctx.globalAlpha = s.sealed ? 0.2 : 0.45;
   ctx.beginPath();
-  ctx.arc(sc.x, sc.y, 20 + 3 * Math.sin(state.time * 2), 0, Math.PI * 2);
+  ctx.arc(sc.x, sc.y, 24 + 4 * Math.sin(state.time * 2), 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
   ctx.fillStyle = '#78350f';
@@ -77,15 +78,15 @@ function drawItem(ctx, item, time) {
   if (item.kind === 'pearl') {
     ctx.save();
     ctx.shadowColor = PALETTE.gold;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 16;
     ctx.fillStyle = PALETTE.gold;
     ctx.beginPath();
-    ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, 9.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     ctx.fillStyle = '#fff7d6';
     ctx.beginPath();
-    ctx.arc(c.x - 2.5, c.y - 2.5, 3, 0, Math.PI * 2);
+    ctx.arc(c.x - 2.5, c.y - 2.5, 3.5, 0, Math.PI * 2);
     ctx.fill();
   } else if (item.kind === 'potion') {
     ctx.fillStyle = PALETTE.heal;
@@ -123,6 +124,14 @@ function drawPlayer(ctx, state) {
   const c = tileCenter(p.x, p.y);
   const bob = Math.sin(state.time * 2.2) * 2;
   ctx.save();
+  // Soft cyan halo so the diver is findable at contact-sheet size.
+  const halo = ctx.createRadialGradient(c.x, c.y, 4, c.x, c.y, 30);
+  halo.addColorStop(0, 'rgba(45, 212, 191, 0.30)');
+  halo.addColorStop(1, 'rgba(45, 212, 191, 0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, 30, 0, Math.PI * 2);
+  ctx.fill();
   if (p.flash > 0) ctx.globalAlpha = 0.55 + 0.45 * (p.flash % 2 === 0 ? 1 : 0.4);
   // Air bubbles trail.
   ctx.fillStyle = 'rgba(125, 211, 252, 0.5)';
@@ -166,6 +175,10 @@ function drawEnemy(ctx, e, time) {
   const t = ENEMIES[e.type];
   const flash = e.flash > 0;
   ctx.save();
+  // Draw creatures 15% larger so they read at contact-sheet size.
+  ctx.translate(c.x, c.y);
+  ctx.scale(1.15, 1.15);
+  ctx.translate(-c.x, -c.y);
   if (flash) ctx.globalAlpha = 0.6;
   const bob = Math.sin(time * 2 + e.x * 1.3 + e.y) * 2;
   if (e.type === 'jelly') {
@@ -241,6 +254,15 @@ function drawEnemy(ctx, e, time) {
   } else {
     // Bosses: big, ringed, glowing.
     const r = e.type === 'leviathan' ? 20 : 17;
+    // Pulsing danger ring so the boss reads instantly at any size.
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.25 * Math.sin(time * 3);
+    ctx.strokeStyle = t.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y + bob, r + 9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
     ctx.save();
     ctx.shadowColor = t.color;
     ctx.shadowBlur = 16;
@@ -324,6 +346,8 @@ function drawHud(ctx, state) {
   if (p.magnet > 0) { ctx.fillStyle = PALETTE.teal; ctx.fillText('◎', bx, 39); bx += 26; }
   if (p.thorns > 0) { ctx.fillStyle = PALETTE.teal; ctx.fillText('✹', bx, 39); bx += 26; }
   if (p.lucky) { ctx.fillStyle = PALETTE.gold; ctx.fillText('☘', bx, 39); bx += 26; }
+  if (p.armor > 0) { ctx.fillStyle = PALETTE.teal; ctx.fillText('❖', bx, 39); bx += 26; }
+  if (p.vampire) { ctx.fillStyle = PALETTE.danger; ctx.fillText('♥', bx, 39); bx += 26; }
   if (p.keys > 0) { ctx.fillStyle = PALETTE.gold; ctx.fillText('⚷×' + p.keys, bx, 39); bx += 44; }
   ctx.fillStyle = PALETTE.inkDim;
   ctx.font = '15px system-ui, sans-serif';
@@ -339,12 +363,39 @@ function drawMessage(ctx, state) {
   ctx.fillText(state.message || 'WASD / arrows to move · bump a foe to harpoon it · find the glowing stairs ▼', 150, 774);
   ctx.textAlign = 'right';
   ctx.fillStyle = PALETTE.inkDim;
-  ctx.fillText('P pause', 1130, 774);
+  ctx.fillText('. wait · P pause', 1130, 774);
   ctx.textAlign = 'left';
 }
 
 function drawTitle(ctx, state) {
   drawBackground(ctx, state);
+  // The Kraken watches from the dark: glowing eyes + tentacle silhouettes
+  // flanking the title, so the boss is felt before the first dive.
+  ctx.save();
+  for (const sx of [150, 1130]) {
+    ctx.strokeStyle = '#f472b6';
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      ctx.moveTo(sx, 150 + k * 26);
+      ctx.quadraticCurveTo(sx + (sx < 640 ? 46 : -46), 170 + k * 26, sx + (sx < 640 ? 26 : -26), 196 + k * 26);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = '#f472b6';
+    ctx.beginPath();
+    ctx.arc(sx, 128, 7, 0, Math.PI * 2);
+    ctx.arc(sx + (sx < 640 ? 22 : -22), 128, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(sx, 128, 2.5, 0, Math.PI * 2);
+    ctx.arc(sx + (sx < 640 ? 22 : -22), 128, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
   // Big glowing title.
   ctx.save();
   ctx.shadowColor = PALETTE.cyan;
@@ -365,8 +416,9 @@ function drawTitle(ctx, state) {
   ctx.fillStyle = PALETTE.inkDim;
   ctx.font = '19px system-ui, sans-serif';
   ctx.fillText('WASD / arrows — move one tile (one turn) · bump a foe to attack', CONFIG.canvasW / 2, 448);
-  ctx.fillText('▼ glowing stairs lead deeper · pick 1 of 3 boons after each floor', CONFIG.canvasW / 2, 476);
-  ctx.fillText('◉ pearls are score · ✚ potions heal · ⚷ keys open chests', CONFIG.canvasW / 2, 504);
+  ctx.fillText('· (hold still) — let foes come to you · ▼ glowing stairs lead deeper', CONFIG.canvasW / 2, 476);
+  ctx.fillText('pick 1 of 3 boons after each floor · ◉ pearls are score · ✚ potions heal', CONFIG.canvasW / 2, 504);
+  ctx.fillText('⚷ keys open chests · 8 boons to find · 2 bosses guard the way down', CONFIG.canvasW / 2, 532);
   // Start button.
   const bw = 300;
   const bh = 64;
@@ -400,6 +452,19 @@ function drawBoonScreen(ctx, state) {
   ctx.fillStyle = PALETTE.gold;
   ctx.font = 'bold 20px system-ui, sans-serif';
   ctx.fillText('◉ Pearls ' + state.player.pearls + '   ·   SCORE ' + state.player.score + '   ·   HP ' + state.player.hp + '/' + state.player.maxHp, CONFIG.canvasW / 2, 214);
+  // Boons already owned, so the choice reads as a build, not a lottery.
+  const owned = [];
+  const op = state.player;
+  if (op.magnet > 0) owned.push('◎ Pearl Magnet');
+  if (op.thorns > 0) owned.push('✹ Spiked Shell');
+  if (op.lucky) owned.push('☘ Lucky Charm');
+  if (op.armor > 0) owned.push('❖ Barnacle Armor');
+  if (op.vampire) owned.push('♥ Vampiric Harpoon');
+  if (op.damage > CONFIG.baseDamage) owned.push('➶ Harpoon +' + (op.damage - CONFIG.baseDamage));
+  if (op.maxHp > CONFIG.baseHp) owned.push('▣ Hull +' + (op.maxHp - CONFIG.baseHp) + ' HP');
+  ctx.fillStyle = PALETTE.inkDim;
+  ctx.font = '18px system-ui, sans-serif';
+  ctx.fillText(owned.length ? 'BOONS OWNED:  ' + owned.join('   ·   ') : 'No boons yet — your first pick shapes the dive.', CONFIG.canvasW / 2, 246);
   const cw = 300;
   const ch = 300;
   const gap = 40;
@@ -548,7 +613,7 @@ function drawGame(ctx, state) {
   // Soft vignette so the scene reads at contact-sheet size.
   const v = ctx.createRadialGradient(640, 400, 320, 640, 400, 760);
   v.addColorStop(0, 'rgba(0,0,0,0)');
-  v.addColorStop(1, 'rgba(0,0,0,0.35)');
+  v.addColorStop(1, 'rgba(0,0,0,0.18)');
   ctx.fillStyle = v;
   ctx.fillRect(0, 0, CONFIG.canvasW, CONFIG.canvasH);
 }

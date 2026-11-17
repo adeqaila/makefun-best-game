@@ -31,10 +31,10 @@ const PALETTE = {
   waterEdge: '#06283a',
   panel: '#06283a',
   panelEdge: '#0f4a63',
-  floorA: '#0d3247',
-  floorB: '#0b2c3f',
+  floorA: '#175a7d',
+  floorB: '#12506f',
   wall: '#04202f',
-  wallEdge: '#0f4a63',
+  wallEdge: '#1a7ca6',
   gold: '#ffd166',
   goldDim: '#b98a1e',
   teal: '#2dd4bf',
@@ -58,7 +58,7 @@ const ENEMIES = {
   leviathan: { name: 'Abyssal Leviathan', hp: 75, dmg: 8, color: '#facc15', dark: '#854d0e', speed: 1, ai: 'chase', minFloor: 10, boss: true },
 };
 
-// Boon table: six boons, three are offered at random after each floor.
+// Boon table: eight boons, three are offered at random after each floor.
 const BOONS = [
   { id: 'hull',     name: 'Reinforced Hull',  icon: '▣', desc: '+20 max HP and heal 20 right now. A sturdier dive suit for deeper water.' },
   { id: 'harpoon',  name: 'Sharpened Harpoon', icon: '➶', desc: '+1 harpoon damage, forever. Every bump hits harder.' },
@@ -66,4 +66,6 @@ const BOONS = [
   { id: 'elixir',   name: 'Deep Elixir',      icon: '✚', desc: 'Heal to full HP immediately. A warm glow in the cold dark.' },
   { id: 'shell',    name: 'Spiked Shell',     icon: '✹', desc: 'Attackers take 2 damage when they bite you. Let them regret it.' },
   { id: 'lucky',    name: 'Lucky Charm',      icon: '☘', desc: 'Every pearl is worth 50% more from now on. Fortune favours the deep.' },
+  { id: 'barnacle', name: 'Barnacle Armor',   icon: '❖', desc: 'Take 1 less damage from every hit (min 1). The reef grows on you.' },
+  { id: 'vampire',  name: 'Vampiric Harpoon', icon: '♥', desc: 'Heal 2 HP whenever you slay a foe. The deep gives back.' },
 ];

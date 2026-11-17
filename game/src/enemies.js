@@ -69,6 +69,7 @@ function killEnemy(state, e, byThorns) {
   e.dead = true;
   state.player.kills++;
   state.player.score += CONFIG.killScore;
+  if (state.player.vampire) healPlayer(state.player, 2);
   spawnHit(state.fx, e.x, e.y, ENEMIES[e.type].color);
   playSfx(byThorns ? 'thorns' : 'kill');
   if (e === state.dungeon.boss) {

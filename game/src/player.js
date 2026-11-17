@@ -14,6 +14,8 @@ function createPlayer(x, y) {
     magnet: 0,
     thorns: 0,
     lucky: false,
+    armor: 0,
+    vampire: false,
     flash: 0,
     facing: 1,
   };
@@ -31,8 +33,10 @@ function addPearls(state, n) {
 }
 
 function hurtPlayer(state, n) {
-  state.player.hp -= n;
-  state.player.flash = 6;
+  const p = state.player;
+  n = Math.max(1, n - (p.armor || 0));
+  p.hp -= n;
+  p.flash = 6;
   addShake(state.fx, 7);
-  if (state.player.hp < 0) state.player.hp = 0;
+  if (p.hp < 0) p.hp = 0;
 }

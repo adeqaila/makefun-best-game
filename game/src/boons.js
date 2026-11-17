@@ -28,6 +28,12 @@ function applyBoon(state, boon) {
   } else if (boon.id === 'lucky') {
     p.lucky = true;
     line = 'Lucky Charm: pearls are worth 50% more.';
+  } else if (boon.id === 'barnacle') {
+    p.armor = 1;
+    line = 'Barnacle Armor: you take 1 less damage from every hit.';
+  } else if (boon.id === 'vampire') {
+    p.vampire = true;
+    line = 'Vampiric Harpoon: slaying a foe heals you 2 HP.';
   }
   state.message = line;
   playSfx('boon');

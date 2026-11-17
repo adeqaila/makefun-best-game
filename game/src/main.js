@@ -160,6 +160,15 @@ function attackEnemy(state, e) {
   }
 }
 
+function doWaitTurn() {
+  if (Game.screen !== 'play' || Game.paused) return;
+  const state = Game;
+  state.message = 'You hold still, listening to the deep…';
+  playSfx('move');
+  enemiesAct(state);
+  state.dungeon.enemies = state.dungeon.enemies.filter((e) => !e.dead);
+}
+
 function doPlayerTurn(dx, dy) {
   if (Game.screen !== 'play' || Game.paused) return;
   const state = Game;
@@ -213,6 +222,7 @@ function handleClick(x, y) {
   if (Game.screen !== 'play' || Game.paused) return;
   const gx = Math.floor((x - CONFIG.originX) / CONFIG.tile);
   const gy = Math.floor((y - CONFIG.originY) / CONFIG.tile);
+  if (gx === Game.player.x && gy === Game.player.y) { doWaitTurn(); return; }
   const dx = gx - Game.player.x;
   const dy = gy - Game.player.y;
   if (Math.abs(dx) + Math.abs(dy) === 1) doPlayerTurn(dx, dy);
@@ -256,6 +266,7 @@ function boot() {
   }
   attachInput(canvas, {
     onMove: handleKeyMove,
+    onWait: doWaitTurn,
     onConfirm: handleConfirm,
     onMute: () => { toggleMute(); },
     onPause: () => { if (Game.screen === 'play') Game.paused = !Game.paused; },
